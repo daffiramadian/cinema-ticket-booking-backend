@@ -1,0 +1,13 @@
+HELP.md
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+
