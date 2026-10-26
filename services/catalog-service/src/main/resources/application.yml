@@ -11,6 +11,9 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  mvc:
+    problemdetails:
+      enabled: true
 management:
   endpoints:
     web:
@@ -19,4 +22,5 @@ management:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+    url: /openapi-v1.yaml
 
