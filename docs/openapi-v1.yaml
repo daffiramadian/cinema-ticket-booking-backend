@@ -1,0 +1,427 @@
+openapi: 3.0.1
+info:
+  title: Cinema Ticket Booking System API
+  version: 1.0.0
+  description: Spesifikasi OpenAPI untuk Cinema Ticket Booking System API versi 1.0.
+servers:
+- url: http://localhost:8081
+  description: Catalog Service
+- url: http://localhost:8082
+  description: Booking Service
+- url: http://localhost:8083
+  description: Payment Service
+tags:
+- name: Catalog
+  description: Movie catalog API
+- name: Booking
+  description: Booking and seat hold API
+- name: Payment
+  description: Simulated payment API
+paths:
+  /api/v1/movies:
+    get:
+      tags:
+      - Catalog
+      summary: Mengambil seluruh daftar film
+      operationId: getMovies
+      responses:
+        '200':
+          description: Daftar film berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MovieOutput'
+    post:
+      tags:
+      - Catalog
+      summary: Menambahkan film baru
+      operationId: createMovie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovieInput'
+      responses:
+        '201':
+          description: Film berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/v1/movies/{id}:
+    get:
+      tags:
+      - Catalog
+      summary: Mengambil detail film berdasarkan ID
+      operationId: getMovieById
+      parameters:
+      - $ref: '#/components/parameters/MovieId'
+      responses:
+        '200':
+          description: Detail film berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieOutput'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+      - Catalog
+      summary: Mengganti seluruh data film berdasarkan ID
+      operationId: replaceMovie
+      parameters:
+      - $ref: '#/components/parameters/MovieId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovieInput'
+      responses:
+        '200':
+          description: Data film berhasil diganti
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+      - Catalog
+      summary: Memperbarui sebagian data film berdasarkan ID
+      operationId: updateMovie
+      parameters:
+      - $ref: '#/components/parameters/MovieId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoviePatchInput'
+      responses:
+        '200':
+          description: Data film berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - Catalog
+      summary: Menghapus film berdasarkan ID
+      operationId: deleteMovie
+      parameters:
+      - $ref: '#/components/parameters/MovieId'
+      responses:
+        '204':
+          description: Film berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/bookings:
+    post:
+      tags:
+      - Booking
+      summary: Membuat reservasi kursi sementara
+      operationId: createBooking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingInput'
+      responses:
+        '201':
+          description: Reservasi berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/bookings/{id}:
+    get:
+      tags:
+      - Booking
+      summary: Mengambil status reservasi berdasarkan ID
+      operationId: getBookingById
+      parameters:
+      - $ref: '#/components/parameters/BookingId'
+      responses:
+        '200':
+          description: Data reservasi berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOutput'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+      - Booking
+      summary: Menjalankan aksi yang diperbolehkan pada reservasi
+      operationId: applyBookingAction
+      parameters:
+      - $ref: '#/components/parameters/BookingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingActionInput'
+      responses:
+        '200':
+          description: Status reservasi berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/payments:
+    post:
+      tags:
+      - Payment
+      summary: Membuat simulasi transaksi pembayaran
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInput'
+      responses:
+        '201':
+          description: Transaksi pembayaran berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/payments/{id}:
+    get:
+      tags:
+      - Payment
+      summary: Mengambil status transaksi pembayaran berdasarkan ID
+      operationId: getPaymentById
+      parameters:
+      - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Data transaksi berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOutput'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  parameters:
+    MovieId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: MV-001
+    BookingId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: BK-001
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: PY-001
+  schemas:
+    MovieInput:
+      type: object
+      required:
+      - title
+      - durationMinutes
+      properties:
+        title:
+          type: string
+          example: Interstellar
+        durationMinutes:
+          type: integer
+          minimum: 1
+          example: 169
+        description:
+          type: string
+          example: Film fiksi ilmiah tentang perjalanan ruang dan waktu.
+    MoviePatchInput:
+      type: object
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          example: Interstellar
+        durationMinutes:
+          type: integer
+          minimum: 1
+          example: 169
+        description:
+          type: string
+          example: Deskripsi film yang diperbarui.
+    MovieOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          example: MV-001
+        title:
+          type: string
+          example: Interstellar
+        durationMinutes:
+          type: integer
+          example: 169
+        description:
+          type: string
+          example: Film fiksi ilmiah tentang perjalanan ruang dan waktu.
+    BookingInput:
+      type: object
+      required:
+      - showtimeId
+      - seatNumber
+      properties:
+        showtimeId:
+          type: string
+          example: ST-001
+        seatNumber:
+          type: string
+          example: C08
+    BookingActionInput:
+      type: object
+      required:
+      - action
+      properties:
+        action:
+          type: string
+          enum:
+          - CANCEL
+          example: CANCEL
+    BookingOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          example: BK-001
+        showtimeId:
+          type: string
+          example: ST-001
+        seatNumber:
+          type: string
+          example: C08
+        status:
+          type: string
+          enum:
+          - PENDING_PAYMENT
+          - CONFIRMED
+          - PAYMENT_FAILED
+          - EXPIRED
+          - CANCELLED
+          example: PENDING_PAYMENT
+        expiresAt:
+          type: string
+          format: date-time
+          example: '2026-10-26T21:45:00+07:00'
+    PaymentInput:
+      type: object
+      required:
+      - bookingId
+      - amount
+      properties:
+        bookingId:
+          type: string
+          example: BK-001
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          example: 50000
+    PaymentOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          example: PY-001
+        bookingId:
+          type: string
+          example: BK-001
+        amount:
+          type: number
+          format: double
+          example: 50000
+        status:
+          type: string
+          enum:
+          - PENDING
+          - SUCCESS
+          - FAILED
+          example: SUCCESS
+    ProblemDetail:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+          example: 409
+        error:
+          type: string
+          example: Conflict
+        message:
+          type: string
+          example: Permintaan bertentangan dengan kondisi resource saat ini.
+        path:
+          type: string
+          example: /api/v1/bookings/BK-001
+  responses:
+    BadRequest:
+      description: Permintaan tidak valid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    NotFound:
+      description: Resource tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Conflict:
+      description: Permintaan bertentangan dengan kondisi resource saat ini
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
