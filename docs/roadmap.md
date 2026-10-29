@@ -62,11 +62,3 @@ Prepare a short demo covering service boundaries, the booking flow, the double-b
 
 **Deliverable:** reproducible presentation script and final report aligned to BRONE instructions.
 
-## Suggested division for three members
-
-| Role | Primary ownership | Shared responsibilities |
-| --- | --- | --- |
-| Lead | Booking, integration coordination | Contract decisions, review, demo |
-| Member 2 | Catalog | Tests, docs, PR review |
-| Member 3 | Payment, CI coordination | Tests, docs, PR review |
-
