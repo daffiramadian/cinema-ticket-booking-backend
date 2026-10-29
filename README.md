@@ -42,18 +42,6 @@ Service URLs:
 
 Generate and commit Maven Wrapper files once per service (`mvn -N wrapper:wrapper`) so all contributors can build with the same Maven version without a separate Maven installation.
 
-## Project plan and collaboration
-
-Read [the step-by-step roadmap](docs/roadmap.md), [architecture](docs/architecture.md), [API versioning plan](docs/api-versioning.md), [booking flow](docs/booking-flow.md), and [contribution guide](CONTRIBUTING.md) before implementing features. `docs/api-contract.md` is the initial contract checklist to agree as a group.
-
-Suggested first split for three people:
-
-1. Team lead: Booking service and cross-service contract/integration.
-2. Member 2: Catalog service.
-3. Member 3: Payment service and CI/OpenAPI coordination.
-
-All members should add tests and documentation for their own changes and review each other's pull requests. This scaffold deliberately leaves domain behavior to the team to implement against the agreed API contract.
-
 ## CI
 
 GitHub Actions builds all three Maven projects on pushes and pull requests. Add service tests as features are implemented; CI will run them through Maven's `verify` lifecycle.
