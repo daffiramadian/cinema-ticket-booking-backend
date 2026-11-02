@@ -396,16 +396,12 @@ components:
           format: date-time
         status:
           type: integer
-          example: 409
         error:
           type: string
-          example: Conflict
         message:
           type: string
-          example: Permintaan bertentangan dengan kondisi resource saat ini.
         path:
           type: string
-          example: /api/v1/bookings/BK-001
   responses:
     BadRequest:
       description: Permintaan tidak valid
@@ -413,16 +409,34 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
+          example:
+            timestamp: '2026-11-02T13:34:05Z'
+            status: 400
+            error: Bad Request
+            message: Request tidak valid
+            path: /api/v1/resource
     NotFound:
       description: Resource tidak ditemukan
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
+          example:
+            timestamp: '2026-11-02T13:34:05Z'
+            status: 404
+            error: Not Found
+            message: Resource tidak ditemukan
+            path: /api/v1/resource/ID
     Conflict:
       description: Permintaan bertentangan dengan kondisi resource saat ini
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
+          example:
+            timestamp: '2026-11-02T13:34:05Z'
+            status: 409
+            error: Conflict
+            message: Permintaan bertentangan dengan kondisi resource saat ini
+            path: /api/v1/resource/ID
 
