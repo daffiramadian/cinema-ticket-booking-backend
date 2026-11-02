@@ -1,5 +1,6 @@
 package com.cinema.booking.service;
 
+import com.cinema.booking.dto.BookingActionInput;
 import com.cinema.booking.dto.BookingInput;
 import com.cinema.booking.dto.BookingOutput;
 import com.cinema.booking.entity.Booking;
@@ -23,6 +24,35 @@ public class BookingService {
 
     public Optional<BookingOutput> getBookingById(String id) {
         return repository.findById(id).map(this::mapToOutput);
+    }
+
+    @Transactional
+    public Optional<BookingOutput> applyBookingAction(String id, BookingActionInput input) {
+        String action = input.getAction();
+
+        if (!"CANCEL".equals(action)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown action: " + action);
+        }
+
+        Booking booking = repository.findById(id).orElse(null);
+        if (booking == null) {
+            return Optional.empty();
+        }
+
+        String currentStatus = booking.getStatus();
+
+        if ("CANCELLED".equals(currentStatus)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking is already cancelled");
+        }
+
+        if (!"PENDING_PAYMENT".equals(currentStatus)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot cancel booking in status: " + currentStatus);
+        }
+
+        booking.setStatus("CANCELLED");
+        Booking saved = repository.save(booking);
+        return Optional.of(mapToOutput(saved));
     }
 
     @Transactional
