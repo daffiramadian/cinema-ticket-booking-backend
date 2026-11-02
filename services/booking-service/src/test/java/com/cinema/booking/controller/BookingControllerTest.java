@@ -1,5 +1,6 @@
 package com.cinema.booking.controller;
 
+import com.cinema.booking.dto.BookingActionInput;
 import com.cinema.booking.dto.BookingInput;
 import com.cinema.booking.dto.BookingOutput;
 import com.cinema.booking.service.BookingService;
@@ -17,9 +18,9 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(BookingController.class)
@@ -89,6 +90,82 @@ class BookingControllerTest {
                 .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Seat already booked for this showtime"));
 
         mockMvc.perform(post("/api/v1/bookings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void applyBookingAction_CancelPendingPayment_ReturnsOk() throws Exception {
+        BookingActionInput input = new BookingActionInput("CANCEL");
+        BookingOutput output = new BookingOutput("BK-001", "ST-001", "C08", "CANCELLED", OffsetDateTime.now().plusMinutes(15));
+        when(service.applyBookingAction(eq("BK-001"), any(BookingActionInput.class))).thenReturn(Optional.of(output));
+
+        mockMvc.perform(patch("/api/v1/bookings/BK-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("BK-001"))
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    void applyBookingAction_CancelSuccessful_StatusBecomesCancelled() throws Exception {
+        BookingActionInput input = new BookingActionInput("CANCEL");
+        BookingOutput output = new BookingOutput("BK-001", "ST-001", "C08", "CANCELLED", OffsetDateTime.now().plusMinutes(15));
+        when(service.applyBookingAction(eq("BK-001"), any(BookingActionInput.class))).thenReturn(Optional.of(output));
+
+        mockMvc.perform(patch("/api/v1/bookings/BK-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.showtimeId").value("ST-001"))
+                .andExpect(jsonPath("$.seatNumber").value("C08"));
+    }
+
+    @Test
+    void applyBookingAction_MissingBooking_ReturnsNotFound() throws Exception {
+        BookingActionInput input = new BookingActionInput("CANCEL");
+        when(service.applyBookingAction(eq("BK-999"), any(BookingActionInput.class))).thenReturn(Optional.empty());
+
+        mockMvc.perform(patch("/api/v1/bookings/BK-999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void applyBookingAction_BlankAction_ReturnsBadRequest() throws Exception {
+        BookingActionInput input = new BookingActionInput("");
+
+        mockMvc.perform(patch("/api/v1/bookings/BK-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).applyBookingAction(any(), any());
+    }
+
+    @Test
+    void applyBookingAction_UnknownAction_ReturnsBadRequest() throws Exception {
+        BookingActionInput input = new BookingActionInput("UNKNOWN");
+        when(service.applyBookingAction(eq("BK-001"), any(BookingActionInput.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown action: UNKNOWN"));
+
+        mockMvc.perform(patch("/api/v1/bookings/BK-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void applyBookingAction_CannotCancelConfirmed_ReturnsConflict() throws Exception {
+        BookingActionInput input = new BookingActionInput("CANCEL");
+        when(service.applyBookingAction(eq("BK-001"), any(BookingActionInput.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Cannot cancel booking in status: CONFIRMED"));
+
+        mockMvc.perform(patch("/api/v1/bookings/BK-001")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(input)))
                 .andExpect(status().isConflict());

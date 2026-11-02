@@ -1,5 +1,6 @@
 package com.cinema.booking.controller;
 
+import com.cinema.booking.dto.BookingActionInput;
 import com.cinema.booking.dto.BookingInput;
 import com.cinema.booking.dto.BookingOutput;
 import com.cinema.booking.service.BookingService;
@@ -29,5 +30,13 @@ public class BookingController {
     public ResponseEntity<BookingOutput> getBookingById(@PathVariable String id) {
         Optional<BookingOutput> opt = service.getBookingById(id);
         return opt.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<BookingOutput> applyBookingAction(@PathVariable String id,
+                                                            @Valid @RequestBody BookingActionInput input) {
+        return service.applyBookingAction(id, input)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }
