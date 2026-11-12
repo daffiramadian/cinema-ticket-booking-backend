@@ -1,0 +1,821 @@
+openapi: 3.0.3
+info:
+  title: Cinema Ticket Booking System - Catalog Service API
+  version: 2.0.0
+  description: |
+    Spesifikasi OpenAPI Catalog Service versi 2.0.
+
+    Status: kontrak terencana (Iterasi 9). Endpoint /api/v2 pada dokumen ini
+    belum diimplementasikan di kode Java. Implementasi dijadwalkan pada
+    Iterasi 10 (GET, POST) dan Iterasi 11 (PUT, PATCH, DELETE).
+
+    Catalog Service memiliki resource Movie dan Showtime. API v1
+    (/api/v1/movies) tetap tersedia dan tidak berubah.
+servers:
+- url: http://localhost:8081
+  description: Catalog Service
+tags:
+- name: Movies
+  description: Data film beserta metadata lengkap
+- name: Showtimes
+  description: Jadwal tayang film yang dimiliki Catalog Service
+paths:
+  /api/v2/movies:
+    get:
+      tags:
+      - Movies
+      summary: Mengambil seluruh daftar film
+      operationId: getMoviesV2
+      responses:
+        '200':
+          description: Daftar film berhasil diambil. Mengembalikan array kosong jika belum ada film.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MovieOutput'
+              example:
+              - id: MV-001
+                title: Interstellar
+                synopsis: Sekelompok astronot melakukan perjalanan melalui lubang cacing untuk mencari planet baru bagi umat manusia.
+                durationMinutes: 169
+                genres:
+                - Sci-Fi
+                - Adventure
+                - Drama
+                posterUrl: https://images.example.com/posters/interstellar.jpg
+                ageRating: 13+
+                director: Christopher Nolan
+                cast:
+                - Matthew McConaughey
+                - Anne Hathaway
+                - Jessica Chastain
+                trailerUrl: https://videos.example.com/trailers/interstellar
+                releaseDate: '2014-11-07'
+    post:
+      tags:
+      - Movies
+      summary: Menambahkan film baru
+      description: ID film dibuat oleh server dengan format MV-NNN. Field id pada request diabaikan.
+      operationId: createMovieV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovieInput'
+            example:
+              title: Interstellar
+              synopsis: Sekelompok astronot melakukan perjalanan melalui lubang cacing untuk mencari planet baru bagi umat manusia.
+              durationMinutes: 169
+              genres:
+              - Sci-Fi
+              - Adventure
+              - Drama
+              posterUrl: https://images.example.com/posters/interstellar.jpg
+              ageRating: 13+
+              director: Christopher Nolan
+              cast:
+              - Matthew McConaughey
+              - Anne Hathaway
+              - Jessica Chastain
+              trailerUrl: https://videos.example.com/trailers/interstellar
+              releaseDate: '2014-11-07'
+      responses:
+        '201':
+          description: Film berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieOutput'
+              example:
+                id: MV-001
+                title: Interstellar
+                synopsis: Sekelompok astronot melakukan perjalanan melalui lubang cacing untuk mencari planet baru bagi umat manusia.
+                durationMinutes: 169
+                genres:
+                - Sci-Fi
+                - Adventure
+                - Drama
+                posterUrl: https://images.example.com/posters/interstellar.jpg
+                ageRating: 13+
+                director: Christopher Nolan
+                cast:
+                - Matthew McConaughey
+                - Anne Hathaway
+                - Jessica Chastain
+                trailerUrl: https://videos.example.com/trailers/interstellar
+                releaseDate: '2014-11-07'
+        '400':
+          $ref: '#/components/responses/MovieBadRequest'
+  /api/v2/movies/{id}:
+    parameters:
+    - $ref: '#/components/parameters/MovieId'
+    get:
+      tags:
+      - Movies
+      summary: Mengambil detail film berdasarkan ID
+      operationId: getMovieByIdV2
+      responses:
+        '200':
+          description: Detail film berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieOutput'
+        '404':
+          $ref: '#/components/responses/MovieNotFound'
+    put:
+      tags:
+      - Movies
+      summary: Mengganti seluruh representasi film yang dapat diedit
+      description: |
+        PUT mengganti seluruh field yang dapat diedit. Field wajib harus dikirim.
+        Field opsional yang tidak dikirim (ageRating, director, cast, trailerUrl,
+        releaseDate) disimpan sebagai null/kosong. ID film tidak dapat diubah.
+      operationId: replaceMovieV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovieInput'
+            example:
+              title: Interstellar
+              synopsis: Perjalanan antarbintang untuk menyelamatkan umat manusia dari krisis pangan global.
+              durationMinutes: 169
+              genres:
+              - Sci-Fi
+              - Drama
+              posterUrl: https://images.example.com/posters/interstellar-v2.jpg
+              ageRating: 13+
+              director: Christopher Nolan
+              cast:
+              - Matthew McConaughey
+              - Anne Hathaway
+              trailerUrl: https://videos.example.com/trailers/interstellar
+              releaseDate: '2014-11-07'
+      responses:
+        '200':
+          description: Data film berhasil diganti
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieOutput'
+              example:
+                id: MV-001
+                title: Interstellar
+                synopsis: Perjalanan antarbintang untuk menyelamatkan umat manusia dari krisis pangan global.
+                durationMinutes: 169
+                genres:
+                - Sci-Fi
+                - Drama
+                posterUrl: https://images.example.com/posters/interstellar-v2.jpg
+                ageRating: 13+
+                director: Christopher Nolan
+                cast:
+                - Matthew McConaughey
+                - Anne Hathaway
+                trailerUrl: https://videos.example.com/trailers/interstellar
+                releaseDate: '2014-11-07'
+        '400':
+          $ref: '#/components/responses/MovieBadRequest'
+        '404':
+          $ref: '#/components/responses/MovieNotFound'
+    patch:
+      tags:
+      - Movies
+      summary: Memperbarui sebagian data film
+      description: |
+        Minimal satu field yang dapat diedit harus dikirim dengan nilai non-null.
+        Field yang tidak dikirim atau bernilai null tidak diubah. Untuk
+        mengosongkan field opsional, gunakan PUT. Body tanpa field yang dapat
+        diedit menghasilkan 400 Bad Request.
+      operationId: updateMovieV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoviePatchInput'
+            example:
+              posterUrl: https://images.example.com/posters/interstellar-imax.jpg
+      responses:
+        '200':
+          description: Data film berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieOutput'
+              example:
+                id: MV-001
+                title: Interstellar
+                synopsis: Sekelompok astronot melakukan perjalanan melalui lubang cacing untuk mencari planet baru bagi umat manusia.
+                durationMinutes: 169
+                genres:
+                - Sci-Fi
+                - Adventure
+                - Drama
+                posterUrl: https://images.example.com/posters/interstellar-imax.jpg
+                ageRating: 13+
+                director: Christopher Nolan
+                cast:
+                - Matthew McConaughey
+                - Anne Hathaway
+                - Jessica Chastain
+                trailerUrl: https://videos.example.com/trailers/interstellar
+                releaseDate: '2014-11-07'
+        '400':
+          $ref: '#/components/responses/MoviePatchBadRequest'
+        '404':
+          $ref: '#/components/responses/MovieNotFound'
+    delete:
+      tags:
+      - Movies
+      summary: Menghapus film berdasarkan ID
+      description: Film yang masih memiliki showtime tidak dapat dihapus dan menghasilkan 409 Conflict. Hapus showtime terkait terlebih dahulu.
+      operationId: deleteMovieV2
+      responses:
+        '204':
+          description: Film berhasil dihapus
+        '404':
+          $ref: '#/components/responses/MovieNotFound'
+        '409':
+          description: Film masih memiliki showtime
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                detail: Movie MV-001 still has showtimes
+                instance: /api/v2/movies/MV-001
+  /api/v2/movies/{movieId}/showtimes:
+    get:
+      tags:
+      - Showtimes
+      summary: Mengambil daftar showtime untuk satu film
+      description: Diurutkan berdasarkan startsAt secara ascending. Mengembalikan array kosong jika film ada tetapi belum memiliki showtime.
+      operationId: getShowtimesByMovieV2
+      parameters:
+      - $ref: '#/components/parameters/MovieIdPath'
+      responses:
+        '200':
+          description: Daftar showtime berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShowtimeOutput'
+              example:
+              - id: ST-001
+                movieId: MV-001
+                cinemaName: Cinema Malang Kota
+                studioName: Studio 1
+                startsAt: '2026-11-20T19:00:00+07:00'
+                price: 50000
+              - id: ST-002
+                movieId: MV-001
+                cinemaName: Cinema Malang Kota
+                studioName: Studio 2
+                startsAt: '2026-11-20T21:30:00+07:00'
+                price: 55000
+        '404':
+          $ref: '#/components/responses/MovieNotFound'
+  /api/v2/showtimes:
+    post:
+      tags:
+      - Showtimes
+      summary: Membuat showtime baru
+      description: ID showtime dibuat oleh server dengan format ST-NNN. movieId harus merujuk film yang sudah ada.
+      operationId: createShowtimeV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShowtimeInput'
+            example:
+              movieId: MV-001
+              cinemaName: Cinema Malang Kota
+              studioName: Studio 1
+              startsAt: '2026-11-20T19:00:00+07:00'
+              price: 50000
+      responses:
+        '201':
+          description: Showtime berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowtimeOutput'
+              example:
+                id: ST-001
+                movieId: MV-001
+                cinemaName: Cinema Malang Kota
+                studioName: Studio 1
+                startsAt: '2026-11-20T19:00:00+07:00'
+                price: 50000
+        '400':
+          $ref: '#/components/responses/ShowtimeBadRequest'
+        '404':
+          $ref: '#/components/responses/MovieNotFound'
+  /api/v2/showtimes/{id}:
+    parameters:
+    - $ref: '#/components/parameters/ShowtimeId'
+    get:
+      tags:
+      - Showtimes
+      summary: Mengambil detail showtime berdasarkan ID
+      operationId: getShowtimeByIdV2
+      responses:
+        '200':
+          description: Detail showtime berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowtimeOutput'
+              example:
+                id: ST-001
+                movieId: MV-001
+                cinemaName: Cinema Malang Kota
+                studioName: Studio 1
+                startsAt: '2026-11-20T19:00:00+07:00'
+                price: 50000
+        '404':
+          $ref: '#/components/responses/ShowtimeNotFound'
+    put:
+      tags:
+      - Showtimes
+      summary: Mengganti seluruh data showtime
+      description: Seluruh field ShowtimeInput wajib dikirim. Jika movieId baru tidak ditemukan, server mengembalikan 404 Not Found.
+      operationId: replaceShowtimeV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShowtimeInput'
+            example:
+              movieId: MV-001
+              cinemaName: Cinema Malang Kota
+              studioName: Studio 3
+              startsAt: '2026-11-20T20:00:00+07:00'
+              price: 60000
+      responses:
+        '200':
+          description: Data showtime berhasil diganti
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowtimeOutput'
+              example:
+                id: ST-001
+                movieId: MV-001
+                cinemaName: Cinema Malang Kota
+                studioName: Studio 3
+                startsAt: '2026-11-20T20:00:00+07:00'
+                price: 60000
+        '400':
+          $ref: '#/components/responses/ShowtimeBadRequest'
+        '404':
+          description: Showtime atau film yang dirujuk movieId tidak ditemukan
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                showtimeNotFound:
+                  summary: Showtime tidak ditemukan
+                  value:
+                    type: about:blank
+                    title: Not Found
+                    status: 404
+                    detail: Showtime ST-999 not found
+                    instance: /api/v2/showtimes/ST-999
+                movieNotFound:
+                  summary: Film pada movieId tidak ditemukan
+                  value:
+                    type: about:blank
+                    title: Not Found
+                    status: 404
+                    detail: Movie MV-999 not found
+                    instance: /api/v2/showtimes/ST-001
+    delete:
+      tags:
+      - Showtimes
+      summary: Menghapus showtime berdasarkan ID
+      operationId: deleteShowtimeV2
+      responses:
+        '204':
+          description: Showtime berhasil dihapus
+        '404':
+          $ref: '#/components/responses/ShowtimeNotFound'
+components:
+  parameters:
+    MovieId:
+      name: id
+      in: path
+      required: true
+      description: ID film
+      schema:
+        type: string
+        pattern: ^MV-[0-9]{3,}$
+      example: MV-001
+    MovieIdPath:
+      name: movieId
+      in: path
+      required: true
+      description: ID film pemilik showtime
+      schema:
+        type: string
+        pattern: ^MV-[0-9]{3,}$
+      example: MV-001
+    ShowtimeId:
+      name: id
+      in: path
+      required: true
+      description: ID showtime
+      schema:
+        type: string
+        pattern: ^ST-[0-9]{3,}$
+      example: ST-001
+  schemas:
+    MovieInput:
+      type: object
+      description: Representasi film yang dapat diedit. Digunakan oleh POST dan PUT.
+      required:
+      - title
+      - synopsis
+      - durationMinutes
+      - genres
+      - posterUrl
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Interstellar
+        synopsis:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          example: Sekelompok astronot melakukan perjalanan melalui lubang cacing untuk mencari planet baru bagi umat manusia.
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 169
+        genres:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+          example:
+          - Sci-Fi
+          - Adventure
+          - Drama
+        posterUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+          description: URL gambar poster eksternal. Wajib menggunakan HTTPS. Tidak ada upload gambar di API ini.
+          example: https://images.example.com/posters/interstellar.jpg
+        ageRating:
+          type: string
+          nullable: true
+          maxLength: 10
+          example: 13+
+        director:
+          type: string
+          nullable: true
+          maxLength: 200
+          example: Christopher Nolan
+        cast:
+          type: array
+          nullable: true
+          items:
+            type: string
+            minLength: 1
+          example:
+          - Matthew McConaughey
+          - Anne Hathaway
+          - Jessica Chastain
+        trailerUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+          nullable: true
+          description: URL trailer eksternal. Jika dikirim, wajib menggunakan HTTPS.
+          example: https://videos.example.com/trailers/interstellar
+        releaseDate:
+          type: string
+          format: date
+          nullable: true
+          description: Tanggal rilis dengan format YYYY-MM-DD.
+          example: '2014-11-07'
+    MoviePatchInput:
+      type: object
+      description: |
+        Perubahan sebagian. Minimal satu field non-null wajib dikirim. Aturan
+        validasi tiap field sama dengan MovieInput (title dan synopsis tidak
+        boleh blank, durationMinutes >= 1, genres minimal satu item, URL wajib HTTPS).
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Interstellar
+        synopsis:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          example: Sinopsis film yang diperbarui.
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 169
+        genres:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+          example:
+          - Sci-Fi
+        posterUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+          example: https://images.example.com/posters/interstellar-imax.jpg
+        ageRating:
+          type: string
+          maxLength: 10
+          example: 13+
+        director:
+          type: string
+          maxLength: 200
+          example: Christopher Nolan
+        cast:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          example:
+          - Matthew McConaughey
+        trailerUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+          example: https://videos.example.com/trailers/interstellar
+        releaseDate:
+          type: string
+          format: date
+          example: '2014-11-07'
+    MovieOutput:
+      type: object
+      required:
+      - id
+      - title
+      - synopsis
+      - durationMinutes
+      - genres
+      - posterUrl
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: MV-001
+        title:
+          type: string
+          example: Interstellar
+        synopsis:
+          type: string
+          example: Sekelompok astronot melakukan perjalanan melalui lubang cacing untuk mencari planet baru bagi umat manusia.
+        durationMinutes:
+          type: integer
+          format: int32
+          example: 169
+        genres:
+          type: array
+          items:
+            type: string
+          example:
+          - Sci-Fi
+          - Adventure
+          - Drama
+        posterUrl:
+          type: string
+          format: uri
+          example: https://images.example.com/posters/interstellar.jpg
+        ageRating:
+          type: string
+          nullable: true
+          example: 13+
+        director:
+          type: string
+          nullable: true
+          example: Christopher Nolan
+        cast:
+          type: array
+          nullable: true
+          items:
+            type: string
+          example:
+          - Matthew McConaughey
+          - Anne Hathaway
+          - Jessica Chastain
+        trailerUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: https://videos.example.com/trailers/interstellar
+        releaseDate:
+          type: string
+          format: date
+          nullable: true
+          example: '2014-11-07'
+    ShowtimeInput:
+      type: object
+      description: Representasi showtime yang dapat diedit. Digunakan oleh POST dan PUT.
+      required:
+      - movieId
+      - cinemaName
+      - studioName
+      - startsAt
+      - price
+      properties:
+        movieId:
+          type: string
+          pattern: ^MV-[0-9]{3,}$
+          example: MV-001
+        cinemaName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Cinema Malang Kota
+        studioName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Studio 1
+        startsAt:
+          type: string
+          format: date-time
+          description: Waktu mulai tayang dalam format ISO-8601 dengan offset zona waktu.
+          example: '2026-11-20T19:00:00+07:00'
+        price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Harga tiket dalam Rupiah. Harus lebih besar dari nol.
+          example: 50000
+    ShowtimeOutput:
+      type: object
+      required:
+      - id
+      - movieId
+      - cinemaName
+      - studioName
+      - startsAt
+      - price
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: ST-001
+        movieId:
+          type: string
+          example: MV-001
+        cinemaName:
+          type: string
+          example: Cinema Malang Kota
+        studioName:
+          type: string
+          example: Studio 1
+        startsAt:
+          type: string
+          format: date-time
+          example: '2026-11-20T19:00:00+07:00'
+        price:
+          type: number
+          format: double
+          example: 50000
+    ProblemDetail:
+      type: object
+      description: Format error standar (RFC 9457 / Spring ProblemDetail).
+      properties:
+        type:
+          type: string
+          example: about:blank
+        title:
+          type: string
+          example: Bad Request
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+        instance:
+          type: string
+  responses:
+    MovieBadRequest:
+      description: Data film tidak valid (validasi field gagal atau JSON tidak valid)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          examples:
+            invalidPosterUrl:
+              summary: posterUrl bukan URL HTTPS
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: 'posterUrl: must be an HTTPS URL'
+                instance: /api/v2/movies
+            emptyGenres:
+              summary: genres kosong
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: 'genres: must contain at least one item'
+                instance: /api/v2/movies
+    MoviePatchBadRequest:
+      description: PATCH tanpa field yang dapat diedit atau nilai field tidak valid
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          examples:
+            emptyPatch:
+              summary: Tidak ada field yang dapat diedit
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: At least one editable field must be provided
+                instance: /api/v2/movies/MV-001
+            invalidDuration:
+              summary: durationMinutes tidak positif
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: 'durationMinutes: must be greater than or equal to 1'
+                instance: /api/v2/movies/MV-001
+    ShowtimeBadRequest:
+      description: Data showtime tidak valid (validasi field gagal atau JSON tidak valid)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          examples:
+            invalidPrice:
+              summary: price tidak lebih besar dari nol
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: 'price: must be greater than 0'
+                instance: /api/v2/showtimes
+            invalidStartsAt:
+              summary: startsAt bukan format ISO-8601
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: 'startsAt: must be an ISO-8601 date-time'
+                instance: /api/v2/showtimes
+    MovieNotFound:
+      description: Film tidak ditemukan
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: about:blank
+            title: Not Found
+            status: 404
+            detail: Movie MV-999 not found
+            instance: /api/v2/movies/MV-999
+    ShowtimeNotFound:
+      description: Showtime tidak ditemukan
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: about:blank
+            title: Not Found
+            status: 404
+            detail: Showtime ST-999 not found
+            instance: /api/v2/showtimes/ST-999
