@@ -1,0 +1,216 @@
+openapi: 3.0.3
+info:
+  title: Cinema Ticket Booking System - Payment Service API
+  version: 2.0.0
+  description: |
+    Spesifikasi OpenAPI Payment Service versi 2.0.
+
+    Status: kontrak terencana (Iterasi 9). Endpoint /api/v2 pada dokumen ini
+    belum diimplementasikan di kode Java. Implementasi dijadwalkan pada
+    Iterasi 10 (GET, POST).
+
+    Payment Service adalah simulator pembayaran. Tidak ada integrasi bank,
+    kartu, e-wallet, atau payment gateway, dan tidak ada data kartu yang
+    diterima atau disimpan. API v1 (/api/v1/payments) tetap tersedia dan
+    tidak berubah.
+
+    Aturan simulator (deterministik):
+    - bookingId yang diakhiri "-FAIL" (contoh BK-001-FAIL) menghasilkan status FAILED.
+    - bookingId lain yang valid menghasilkan status SUCCESS.
+    - Satu bookingId hanya boleh memiliki satu record pembayaran, apa pun
+      statusnya. Permintaan berikutnya untuk bookingId yang sama menghasilkan
+      409 Conflict.
+    - Payment Service tidak memanggil Booking Service. bookingId hanya
+      divalidasi formatnya, dan amount tidak dicocokkan dengan harga showtime.
+servers:
+- url: http://localhost:8083
+  description: Payment Service
+tags:
+- name: Payments
+  description: Simulasi transaksi pembayaran
+paths:
+  /api/v2/payments:
+    post:
+      tags:
+      - Payments
+      summary: Membuat simulasi pembayaran untuk satu booking
+      description: ID pembayaran dibuat oleh server dengan format PY-NNN. Status ditentukan oleh aturan simulator.
+      operationId: createPaymentV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInput'
+            examples:
+              success:
+                summary: Simulasi pembayaran berhasil
+                value:
+                  bookingId: BK-001
+                  amount: 50000
+              failed:
+                summary: Simulasi pembayaran gagal
+                value:
+                  bookingId: BK-002-FAIL
+                  amount: 50000
+      responses:
+        '201':
+          description: Record pembayaran berhasil dibuat. Status SUCCESS atau FAILED sesuai aturan simulator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOutput'
+              examples:
+                success:
+                  summary: Pembayaran berhasil
+                  value:
+                    id: PY-001
+                    bookingId: BK-001
+                    amount: 50000
+                    status: SUCCESS
+                failed:
+                  summary: Pembayaran gagal
+                  value:
+                    id: PY-002
+                    bookingId: BK-002-FAIL
+                    amount: 50000
+                    status: FAILED
+        '400':
+          description: bookingId tidak valid atau amount tidak positif
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                invalidBookingId:
+                  summary: Format bookingId tidak valid
+                  value:
+                    type: about:blank
+                    title: Bad Request
+                    status: 400
+                    detail: 'bookingId: must match BK-NNN or BK-NNN-FAIL'
+                    instance: /api/v2/payments
+                nonPositiveAmount:
+                  summary: amount nol atau negatif
+                  value:
+                    type: about:blank
+                    title: Bad Request
+                    status: 400
+                    detail: 'amount: must be greater than 0'
+                    instance: /api/v2/payments
+        '409':
+          description: Sudah ada record pembayaran untuk bookingId tersebut
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                detail: Payment already exists for booking BK-001
+                instance: /api/v2/payments
+  /api/v2/payments/{id}:
+    get:
+      tags:
+      - Payments
+      summary: Mengambil detail pembayaran berdasarkan ID
+      operationId: getPaymentByIdV2
+      parameters:
+      - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Detail pembayaran berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOutput'
+              example:
+                id: PY-001
+                bookingId: BK-001
+                amount: 50000
+                status: SUCCESS
+        '404':
+          description: Pembayaran tidak ditemukan
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: Payment PY-999 not found
+                instance: /api/v2/payments/PY-999
+components:
+  parameters:
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      description: ID pembayaran
+      schema:
+        type: string
+        pattern: ^PY-[0-9]{3,}$
+      example: PY-001
+  schemas:
+    PaymentInput:
+      type: object
+      required:
+      - bookingId
+      - amount
+      properties:
+        bookingId:
+          type: string
+          pattern: ^BK-[0-9]{3,}(-FAIL)?$
+          description: ID booking dengan format BK-NNN. Akhiran -FAIL memicu simulasi pembayaran gagal.
+          example: BK-001
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Nominal pembayaran dalam Rupiah. Harus lebih besar dari nol.
+          example: 50000
+    PaymentOutput:
+      type: object
+      required:
+      - id
+      - bookingId
+      - amount
+      - status
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: PY-001
+        bookingId:
+          type: string
+          example: BK-001
+        amount:
+          type: number
+          format: double
+          example: 50000
+        status:
+          type: string
+          enum:
+          - SUCCESS
+          - FAILED
+          example: SUCCESS
+    ProblemDetail:
+      type: object
+      description: Format error standar (RFC 9457 / Spring ProblemDetail).
+      properties:
+        type:
+          type: string
+          example: about:blank
+        title:
+          type: string
+          example: Bad Request
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+        instance:
+          type: string

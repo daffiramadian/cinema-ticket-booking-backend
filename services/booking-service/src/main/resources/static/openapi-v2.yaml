@@ -1,0 +1,433 @@
+openapi: 3.0.3
+info:
+  title: Cinema Ticket Booking System - Booking Service API
+  version: 2.0.0
+  description: |
+    Spesifikasi OpenAPI Booking Service versi 2.0.
+
+    Status: kontrak terencana (Iterasi 9). Endpoint /api/v2 pada dokumen ini
+    belum diimplementasikan di kode Java. Implementasi dijadwalkan pada
+    Iterasi 10 (GET, POST) dan Iterasi 11 (PATCH).
+
+    Booking Service memiliki ketersediaan kursi per showtime dan siklus hidup
+    booking. Satu booking mewakili satu kursi pada satu showtime. API v1
+    (/api/v1/bookings) tetap tersedia dan tidak berubah.
+
+    Denah kursi standar per showtime: baris A sampai E, nomor 1 sampai 10
+    (50 kursi). Format seatNumber adalah huruf baris diikuti dua digit nomor,
+    misalnya A01 atau C08.
+
+    Data showtime dimiliki Catalog Service. Booking Service memvalidasi
+    showtimeId ke Catalog Service (GET /api/v2/showtimes/{id}) sebelum
+    menampilkan denah kursi atau membuat booking.
+servers:
+- url: http://localhost:8082
+  description: Booking Service
+tags:
+- name: Seats
+  description: Ketersediaan kursi per showtime
+- name: Bookings
+  description: Reservasi satu kursi untuk satu showtime
+paths:
+  /api/v2/showtimes/{showtimeId}/seats:
+    get:
+      tags:
+      - Seats
+      summary: Mengambil denah dan status ketersediaan kursi untuk satu showtime
+      description: |
+        Mengembalikan seluruh kursi pada denah standar, diurutkan berdasarkan
+        baris lalu nomor. Status dihitung saat request:
+        - HELD: ada booking PENDING_PAYMENT yang expiresAt-nya belum lewat.
+        - BOOKED: ada booking CONFIRMED.
+        - AVAILABLE: selain kondisi di atas, termasuk kursi dari booking
+          yang sudah CANCELLED atau hold yang sudah kedaluwarsa.
+      operationId: getSeatAvailabilityV2
+      parameters:
+      - $ref: '#/components/parameters/ShowtimeIdPath'
+      responses:
+        '200':
+          description: Denah kursi berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SeatAvailability'
+              example:
+              - seatNumber: C07
+                row: C
+                number: 7
+                status: AVAILABLE
+              - seatNumber: C08
+                row: C
+                number: 8
+                status: HELD
+              - seatNumber: C09
+                row: C
+                number: 9
+                status: BOOKED
+        '404':
+          $ref: '#/components/responses/ShowtimeNotFound'
+        '503':
+          $ref: '#/components/responses/CatalogUnavailable'
+  /api/v2/bookings:
+    post:
+      tags:
+      - Bookings
+      summary: Membuat booking untuk satu kursi pada satu showtime
+      description: |
+        Booking yang berhasil dibuat berstatus PENDING_PAYMENT dan menahan
+        kursi sampai expiresAt (15 menit setelah dibuat). Kursi dengan status
+        HELD atau BOOKED tidak dapat dipesan lagi dan menghasilkan 409 Conflict.
+        ID booking dibuat oleh server dengan format BK-NNN.
+      operationId: createBookingV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingInput'
+            example:
+              showtimeId: ST-001
+              seatNumber: C08
+      responses:
+        '201':
+          description: Booking berhasil dibuat dan kursi ditahan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOutput'
+              example:
+                id: BK-001
+                showtimeId: ST-001
+                seatNumber: C08
+                status: PENDING_PAYMENT
+                expiresAt: '2026-11-20T18:15:00+07:00'
+        '400':
+          $ref: '#/components/responses/BookingBadRequest'
+        '404':
+          $ref: '#/components/responses/ShowtimeNotFound'
+        '409':
+          description: Kursi sedang ditahan (HELD) atau sudah terjual (BOOKED)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                detail: Seat C08 is not available for showtime ST-001
+                instance: /api/v2/bookings
+        '503':
+          $ref: '#/components/responses/CatalogUnavailable'
+  /api/v2/bookings/{id}:
+    parameters:
+    - $ref: '#/components/parameters/BookingId'
+    get:
+      tags:
+      - Bookings
+      summary: Mengambil detail booking berdasarkan ID
+      operationId: getBookingByIdV2
+      responses:
+        '200':
+          description: Detail booking berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOutput'
+              example:
+                id: BK-001
+                showtimeId: ST-001
+                seatNumber: C08
+                status: PENDING_PAYMENT
+                expiresAt: '2026-11-20T18:15:00+07:00'
+        '404':
+          $ref: '#/components/responses/BookingNotFound'
+    patch:
+      tags:
+      - Bookings
+      summary: Menjalankan aksi pada booking
+      description: |
+        Aksi yang didukung hanya CANCEL. CANCEL mengubah booking berstatus
+        PENDING_PAYMENT menjadi CANCELLED dan mengembalikan kursi menjadi
+        AVAILABLE. Action kosong atau tidak dikenal menghasilkan 400 Bad
+        Request. Membatalkan booking yang sudah CANCELLED atau CONFIRMED
+        menghasilkan 409 Conflict.
+      operationId: applyBookingActionV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingActionInput'
+            example:
+              action: CANCEL
+      responses:
+        '200':
+          description: Booking berhasil dibatalkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOutput'
+              example:
+                id: BK-001
+                showtimeId: ST-001
+                seatNumber: C08
+                status: CANCELLED
+                expiresAt: '2026-11-20T18:15:00+07:00'
+        '400':
+          description: Action kosong atau tidak didukung
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                blankAction:
+                  summary: Action kosong
+                  value:
+                    type: about:blank
+                    title: Bad Request
+                    status: 400
+                    detail: 'action: must not be blank'
+                    instance: /api/v2/bookings/BK-001
+                unknownAction:
+                  summary: Action tidak didukung
+                  value:
+                    type: about:blank
+                    title: Bad Request
+                    status: 400
+                    detail: 'Unsupported action: CONFIRM'
+                    instance: /api/v2/bookings/BK-001
+        '404':
+          $ref: '#/components/responses/BookingNotFound'
+        '409':
+          description: Booking tidak berstatus PENDING_PAYMENT
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                alreadyCancelled:
+                  summary: Booking sudah dibatalkan
+                  value:
+                    type: about:blank
+                    title: Conflict
+                    status: 409
+                    detail: Booking BK-001 is already CANCELLED
+                    instance: /api/v2/bookings/BK-001
+                alreadyConfirmed:
+                  summary: Booking sudah dikonfirmasi
+                  value:
+                    type: about:blank
+                    title: Conflict
+                    status: 409
+                    detail: Cannot cancel booking BK-001 in status CONFIRMED
+                    instance: /api/v2/bookings/BK-001
+components:
+  parameters:
+    ShowtimeIdPath:
+      name: showtimeId
+      in: path
+      required: true
+      description: ID showtime milik Catalog Service
+      schema:
+        type: string
+        pattern: ^ST-[0-9]{3,}$
+      example: ST-001
+    BookingId:
+      name: id
+      in: path
+      required: true
+      description: ID booking
+      schema:
+        type: string
+        pattern: ^BK-[0-9]{3,}$
+      example: BK-001
+  schemas:
+    SeatAvailability:
+      type: object
+      required:
+      - seatNumber
+      - row
+      - number
+      - status
+      properties:
+        seatNumber:
+          type: string
+          pattern: ^[A-E](0[1-9]|10)$
+          example: C08
+        row:
+          type: string
+          pattern: ^[A-E]$
+          example: C
+        number:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10
+          example: 8
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+          - HELD
+          - BOOKED
+          example: AVAILABLE
+    BookingInput:
+      type: object
+      required:
+      - showtimeId
+      - seatNumber
+      properties:
+        showtimeId:
+          type: string
+          pattern: ^ST-[0-9]{3,}$
+          example: ST-001
+        seatNumber:
+          type: string
+          pattern: ^[A-E](0[1-9]|10)$
+          description: Kursi pada denah standar (A01 sampai E10).
+          example: C08
+    BookingActionInput:
+      type: object
+      required:
+      - action
+      properties:
+        action:
+          type: string
+          minLength: 1
+          description: Aksi pada booking. Satu-satunya aksi yang didukung adalah CANCEL.
+          enum:
+          - CANCEL
+          example: CANCEL
+    BookingOutput:
+      type: object
+      required:
+      - id
+      - showtimeId
+      - seatNumber
+      - status
+      - expiresAt
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: BK-001
+        showtimeId:
+          type: string
+          example: ST-001
+        seatNumber:
+          type: string
+          example: C08
+        status:
+          type: string
+          enum:
+          - PENDING_PAYMENT
+          - CANCELLED
+          - CONFIRMED
+          example: PENDING_PAYMENT
+        expiresAt:
+          type: string
+          format: date-time
+          description: Batas waktu hold kursi (ISO-8601). Setelah lewat, kursi kembali AVAILABLE jika booking belum CONFIRMED.
+          example: '2026-11-20T18:15:00+07:00'
+    ProblemDetail:
+      type: object
+      description: Format error standar (RFC 9457 / Spring ProblemDetail).
+      properties:
+        type:
+          type: string
+          example: about:blank
+        title:
+          type: string
+          example: Bad Request
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+        instance:
+          type: string
+  responses:
+    BookingBadRequest:
+      description: Data booking tidak valid (field kosong, format salah, atau kursi tidak ada pada denah)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          examples:
+            missingSeat:
+              summary: seatNumber kosong
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: 'seatNumber: must not be blank'
+                instance: /api/v2/bookings
+            seatOutsideLayout:
+              summary: Kursi tidak ada pada denah standar
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: 'seatNumber: Z99 is not part of the seat layout'
+                instance: /api/v2/bookings
+    BookingNotFound:
+      description: Booking tidak ditemukan
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: about:blank
+            title: Not Found
+            status: 404
+            detail: Booking BK-999 not found
+            instance: /api/v2/bookings/BK-999
+    ShowtimeNotFound:
+      description: Showtime tidak ditemukan di Catalog Service
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          examples:
+            seatMap:
+              summary: Denah kursi untuk showtime yang tidak ada
+              value:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: Showtime ST-999 not found
+                instance: /api/v2/showtimes/ST-999/seats
+            createBooking:
+              summary: Booking untuk showtime yang tidak ada
+              value:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: Showtime ST-999 not found
+                instance: /api/v2/bookings
+    CatalogUnavailable:
+      description: Catalog Service tidak dapat dihubungi atau melewati batas timeout, sehingga showtime tidak dapat divalidasi
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          examples:
+            seatMap:
+              summary: Catalog tidak tersedia saat mengambil denah kursi
+              value:
+                type: about:blank
+                title: Service Unavailable
+                status: 503
+                detail: Catalog Service is unavailable, showtime could not be validated
+                instance: /api/v2/showtimes/ST-001/seats
+            createBooking:
+              summary: Catalog tidak tersedia saat membuat booking
+              value:
+                type: about:blank
+                title: Service Unavailable
+                status: 503
+                detail: Catalog Service is unavailable, showtime could not be validated
+                instance: /api/v2/bookings
