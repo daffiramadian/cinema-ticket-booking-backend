@@ -5,9 +5,7 @@ info:
   description: |
     Spesifikasi OpenAPI Payment Service versi 2.0.
 
-    Status: kontrak terencana (Iterasi 9). Endpoint /api/v2 pada dokumen ini
-    belum diimplementasikan di kode Java. Implementasi dijadwalkan pada
-    Iterasi 10 (GET, POST).
+    Status: endpoint GET dan POST sudah diimplementasikan (Iterasi 10).
 
     Payment Service adalah simulator pembayaran. Tidak ada integrasi bank,
     kartu, e-wallet, atau payment gateway, dan tidak ada data kartu yang

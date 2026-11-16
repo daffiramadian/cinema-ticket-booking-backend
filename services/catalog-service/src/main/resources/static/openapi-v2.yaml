@@ -5,9 +5,8 @@ info:
   description: |
     Spesifikasi OpenAPI Catalog Service versi 2.0.
 
-    Status: kontrak terencana (Iterasi 9). Endpoint /api/v2 pada dokumen ini
-    belum diimplementasikan di kode Java. Implementasi dijadwalkan pada
-    Iterasi 10 (GET, POST) dan Iterasi 11 (PUT, PATCH, DELETE).
+    Status: endpoint GET dan POST sudah diimplementasikan (Iterasi 10).
+    Implementasi PUT, PATCH, dan DELETE dijadwalkan pada Iterasi 11.
 
     Catalog Service memiliki resource Movie dan Showtime. API v1
     (/api/v1/movies) tetap tersedia dan tidak berubah.

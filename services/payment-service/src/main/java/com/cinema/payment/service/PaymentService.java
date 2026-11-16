@@ -2,6 +2,7 @@ package com.cinema.payment.service;
 
 import com.cinema.payment.dto.PaymentInput;
 import com.cinema.payment.dto.PaymentOutput;
+import com.cinema.payment.dto.PaymentV2Input;
 import com.cinema.payment.entity.Payment;
 import com.cinema.payment.repository.PaymentRepository;
 import org.springframework.http.HttpStatus;
@@ -25,22 +26,41 @@ public class PaymentService {
 
     @Transactional
     public PaymentOutput createPayment(PaymentInput input) {
-        if (repository.existsByBookingId(input.bookingId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Payment already exists for this booking");
+        return processPayment(input.bookingId(), input.amount());
+    }
+
+    @Transactional
+    public PaymentOutput createPaymentV2(PaymentV2Input input) {
+        return processPayment(input.bookingId(), input.amount());
+    }
+
+    private PaymentOutput processPayment(String bookingId, java.math.BigDecimal amount) {
+        if (repository.existsByBookingId(bookingId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Payment already exists for booking " + bookingId);
         }
 
         String id = generateId();
-        // Deterministic simulation: bookingId ends with "-FAIL" results in FAILED status
-        String status = input.bookingId().endsWith("-FAIL") ? "FAILED" : "SUCCESS";
-        
-        Payment payment = new Payment(id, input.bookingId(), input.amount(), status);
+        String status = bookingId.endsWith("-FAIL") ? "FAILED" : "SUCCESS";
+
+        Payment payment = new Payment(id, bookingId, amount, status);
         Payment saved = repository.save(payment);
         return mapToOutput(saved);
     }
 
     private String generateId() {
-        long count = repository.count();
-        return String.format("PY-%03d", count + 1);
+        int maxNum = repository.findAll().stream()
+                .map(Payment::getId)
+                .filter(id -> id != null && id.startsWith("PY-"))
+                .mapToInt(id -> {
+                    try {
+                        return Integer.parseInt(id.substring(3));
+                    } catch (NumberFormatException e) {
+                        return 0;
+                    }
+                })
+                .max()
+                .orElse(0);
+        return String.format("PY-%03d", maxNum + 1);
     }
 
     private PaymentOutput mapToOutput(Payment payment) {

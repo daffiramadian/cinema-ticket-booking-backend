@@ -5,9 +5,8 @@ info:
   description: |
     Spesifikasi OpenAPI Booking Service versi 2.0.
 
-    Status: kontrak terencana (Iterasi 9). Endpoint /api/v2 pada dokumen ini
-    belum diimplementasikan di kode Java. Implementasi dijadwalkan pada
-    Iterasi 10 (GET, POST) dan Iterasi 11 (PATCH).
+    Status: endpoint GET dan POST sudah diimplementasikan (Iterasi 10).
+    Implementasi PATCH dijadwalkan pada Iterasi 11.
 
     Booking Service memiliki ketersediaan kursi per showtime dan siklus hidup
     booking. Satu booking mewakili satu kursi pada satu showtime. API v1

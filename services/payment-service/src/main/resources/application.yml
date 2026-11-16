@@ -11,6 +11,9 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  mvc:
+    problemdetails:
+      enabled: true
 management:
   endpoints:
     web:
@@ -25,4 +28,3 @@ springdoc:
       - name: API v2
         url: /openapi-v2.yaml
     urls-primary-name: API v1
-
