@@ -22,5 +22,10 @@ management:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-    url: /openapi-v1.yaml
+    urls:
+      - name: API v1
+        url: /openapi-v1.yaml
+      - name: API v2
+        url: /openapi-v2.yaml
+    urls-primary-name: API v1
 
