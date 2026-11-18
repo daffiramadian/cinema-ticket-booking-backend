@@ -19,9 +19,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -87,5 +92,82 @@ class ShowtimeV2ControllerTest {
         mockMvc.perform(get("/api/v2/showtimes/ST-001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value("ST-001"));
+    }
+
+    @Test
+    void replaceShowtime_Valid_ReturnsOk() throws Exception {
+        OffsetDateTime starts = OffsetDateTime.parse("2026-11-20T20:00:00+07:00");
+        ShowtimeInput input = new ShowtimeInput("MV-001", "Cinema Malang Kota", "Studio 3", starts, new BigDecimal("60000"));
+        ShowtimeOutput out = new ShowtimeOutput("ST-001", "MV-001", "Cinema Malang Kota", "Studio 3", starts, new BigDecimal("60000"));
+        when(service.replaceShowtime(eq("ST-001"), any(ShowtimeInput.class))).thenReturn(out);
+
+        mockMvc.perform(put("/api/v2/showtimes/ST-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("ST-001"))
+                .andExpect(jsonPath("$.studioName").value("Studio 3"))
+                .andExpect(jsonPath("$.price").value(60000));
+    }
+
+    @Test
+    void replaceShowtime_Invalid_ReturnsBadRequest() throws Exception {
+        OffsetDateTime starts = OffsetDateTime.parse("2026-11-20T20:00:00+07:00");
+        ShowtimeInput input = new ShowtimeInput("INVALID", "", "", starts, BigDecimal.ZERO);
+
+        mockMvc.perform(put("/api/v2/showtimes/ST-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void replaceShowtime_ShowtimeNotFound_ReturnsNotFound() throws Exception {
+        OffsetDateTime starts = OffsetDateTime.parse("2026-11-20T20:00:00+07:00");
+        ShowtimeInput input = new ShowtimeInput("MV-001", "Cinema Malang Kota", "Studio 3", starts, new BigDecimal("60000"));
+        when(service.replaceShowtime(eq("ST-999"), any(ShowtimeInput.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime ST-999 not found"));
+
+        mockMvc.perform(put("/api/v2/showtimes/ST-999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Showtime ST-999 not found"));
+    }
+
+    @Test
+    void replaceShowtime_ReplacementMovieNotFound_ReturnsNotFound() throws Exception {
+        OffsetDateTime starts = OffsetDateTime.parse("2026-11-20T20:00:00+07:00");
+        ShowtimeInput input = new ShowtimeInput("MV-999", "Cinema Malang Kota", "Studio 3", starts, new BigDecimal("60000"));
+        when(service.replaceShowtime(eq("ST-001"), any(ShowtimeInput.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie MV-999 not found"));
+
+        mockMvc.perform(put("/api/v2/showtimes/ST-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Movie MV-999 not found"));
+    }
+
+    @Test
+    void deleteShowtime_Success_ReturnsNoContent() throws Exception {
+        doNothing().when(service).deleteShowtime("ST-001");
+
+        mockMvc.perform(delete("/api/v2/showtimes/ST-001"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteShowtime_NotFound_ReturnsNotFound() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime ST-999 not found"))
+                .when(service).deleteShowtime("ST-999");
+
+        mockMvc.perform(delete("/api/v2/showtimes/ST-999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Showtime ST-999 not found"));
     }
 }

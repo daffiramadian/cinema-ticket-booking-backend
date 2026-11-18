@@ -53,6 +53,29 @@ public class ShowtimeService {
         return mapToOutput(showtimeRepository.save(showtime));
     }
 
+    @Transactional
+    public ShowtimeOutput replaceShowtime(String id, ShowtimeInput input) {
+        Showtime showtime = showtimeRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime " + id + " not found"));
+        if (!movieRepository.existsById(input.movieId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie " + input.movieId() + " not found");
+        }
+        showtime.setMovieId(input.movieId());
+        showtime.setCinemaName(input.cinemaName());
+        showtime.setStudioName(input.studioName());
+        showtime.setStartsAt(input.startsAt());
+        showtime.setPrice(input.price());
+        return mapToOutput(showtimeRepository.save(showtime));
+    }
+
+    @Transactional
+    public void deleteShowtime(String id) {
+        if (!showtimeRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime " + id + " not found");
+        }
+        showtimeRepository.deleteById(id);
+    }
+
     private String generateId() {
         int maxNum = showtimeRepository.findAll().stream()
                 .map(Showtime::getId)
