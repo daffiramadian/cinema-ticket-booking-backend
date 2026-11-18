@@ -98,24 +98,70 @@ public class BookingV2Service {
         if (action == null || action.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action: must not be blank");
         }
-        if (!"CANCEL".equals(action)) {
+        if (!"CANCEL".equals(action) && !"CONFIRM".equals(action)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported action: " + action);
         }
 
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking " + id + " not found"));
 
+        if ("CANCEL".equals(action)) {
+            return cancelBooking(booking);
+        }
+        return confirmBooking(booking);
+    }
+
+    private BookingOutput cancelBooking(Booking booking) {
+        requirePendingBooking(booking, "CANCELLED", "cancel");
+        SeatAvailability seat = lockHeldSeatForBooking(booking);
+
+        booking.setStatus("CANCELLED");
+        Booking saved = bookingRepository.save(booking);
+
+        seat.setStatus("AVAILABLE");
+        seat.setBookingId(null);
+        seat.setHeldUntil(null);
+        seatRepository.save(seat);
+
+        return mapToOutput(saved);
+    }
+
+    private BookingOutput confirmBooking(Booking booking) {
+        requirePendingBooking(booking, "CONFIRMED", "confirm");
+        SeatAvailability seat = lockHeldSeatForBooking(booking);
+
+        OffsetDateTime now = OffsetDateTime.now();
+        if ((booking.getExpiresAt() != null && booking.getExpiresAt().isBefore(now))
+                || (seat.getHeldUntil() != null && seat.getHeldUntil().isBefore(now))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking " + booking.getId() + " hold has expired");
+        }
+
+        booking.setStatus("CONFIRMED");
+        Booking saved = bookingRepository.save(booking);
+
+        seat.setStatus("BOOKED");
+        seat.setHeldUntil(null);
+        seatRepository.save(seat);
+
+        return mapToOutput(saved);
+    }
+
+    private void requirePendingBooking(Booking booking, String targetStatus, String verb) {
+        String id = booking.getId();
         String currentStatus = booking.getStatus();
-        if ("CANCELLED".equals(currentStatus)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking " + id + " is already CANCELLED");
+        if (targetStatus.equals(currentStatus)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking " + id + " is already " + targetStatus);
         }
         if (!"PENDING_PAYMENT".equals(currentStatus)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Cannot cancel booking " + id + " in status " + currentStatus
+                    "Cannot " + verb + " booking " + id + " in status " + currentStatus
             );
         }
+    }
 
+    private SeatAvailability lockHeldSeatForBooking(Booking booking) {
+        String id = booking.getId();
         SeatAvailability seat = seatRepository.findForUpdate(booking.getShowtimeId(), booking.getSeatNumber())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT,
@@ -128,16 +174,7 @@ public class BookingV2Service {
                     "Seat " + booking.getSeatNumber() + " is not held by booking " + id
             );
         }
-
-        booking.setStatus("CANCELLED");
-        Booking saved = bookingRepository.save(booking);
-
-        seat.setStatus("AVAILABLE");
-        seat.setBookingId(null);
-        seat.setHeldUntil(null);
-        seatRepository.save(seat);
-
-        return mapToOutput(saved);
+        return seat;
     }
 
     private void ensureSeatMapInitialized(String showtimeId) {

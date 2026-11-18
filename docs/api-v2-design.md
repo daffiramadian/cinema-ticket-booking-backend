@@ -42,7 +42,7 @@ Movie List ──> Movie Detail ──> Showtime List ──> Seat Map ──> B
 6. **Simulasi Pembayaran (*Payment*):**
    Sebelum waktu `expiresAt` habis, klien mengirim `POST /api/v2/payments` ke Payment Service dengan `bookingId` dan `amount`. Simulator menghasilkan status `SUCCESS` (atau `FAILED` jika `bookingId` berakhiran `-FAIL`).
 7. **Konfirmasi atau Pembatalan (*Confirmation or Cancellation*):**
-   - **Konfirmasi:** Pembayaran yang berhasil (`SUCCESS`) pada rancangan alur akhir v2 akan mengubah status booking menjadi `CONFIRMED` dan status kursi menjadi `BOOKED` secara permanen.
+   - **Konfirmasi:** Setelah pembayaran berhasil (`SUCCESS`), booking yang masih berstatus `PENDING_PAYMENT` dan belum melewati `expiresAt` dikonfirmasi melalui `PATCH /api/v2/bookings/{id}` dengan `{"action": "CONFIRM"}`. Booking Service mengunci baris kursi melalui `findForUpdate`, memverifikasi kursi berstatus `HELD` milik booking tersebut, mengubah status booking menjadi `CONFIRMED`, mengubah status kursi menjadi `BOOKED`, serta menghapus `heldUntil`. Hold yang sudah kedaluwarsa atau booking non-`PENDING_PAYMENT` ditolak dengan `409 Conflict`.
    - **Pembatalan / Kedaluwarsa:** Pengguna dapat membatalkan reservasi yang masih `PENDING_PAYMENT` melalui `PATCH /api/v2/bookings/{id}` dengan `{"action": "CANCEL"}`, yang mengubah status booking menjadi `CANCELLED`. Apabila waktu `expiresAt` terlewati tanpa pembayaran atau booking dibatalkan, kursi kembali menjadi `AVAILABLE`.
 
 ---
@@ -79,4 +79,4 @@ Untuk mencegah *double booking* pada skenario konkurensi tinggi, implementasi AP
    - Booking dengan status `PENDING_PAYMENT` yang telah melewati waktu `expiresAt` dianggap kedaluwarsa, sehingga kursinya kembali berstatus `AVAILABLE` dan dapat dipesan pengguna lain.
    - Booking yang dibatalkan melalui `PATCH /api/v2/bookings/{id}` dengan `{"action": "CANCEL"}` mengubah status reservasi menjadi `CANCELLED` dan langsung mengembalikan status kursi menjadi `AVAILABLE`.
 4. **Transisi Menuju Status `BOOKED` / `CONFIRMED`:**
-   Pembayaran yang berhasil (`SUCCESS`) pada alur terintegrasi v2 pada akhirnya harus memperbarui status booking menjadi `CONFIRMED` dan mengunci status kursi menjadi `BOOKED` sehingga kursi tersebut tidak lagi memiliki batas kedaluwarsa dan tidak dapat dibatalkan maupun dipesan ulang.
+   Konfirmasi booking melalui `PATCH /api/v2/bookings/{id}` dengan `{"action": "CONFIRM"}` memvalidasi bahwa booking berstatus `PENDING_PAYMENT`, mengunci baris kursi menggunakan `findForUpdate(showtimeId, seatNumber)`, memastikan kursi berstatus `HELD` milik booking tersebut dan belum kedaluwarsa, memperbarui status booking menjadi `CONFIRMED`, mengubah status kursi menjadi `BOOKED`, dan menghapus `heldUntil` dalam satu transaksi (`409 Conflict` jika status tidak valid atau hold sudah kedaluwarsa).

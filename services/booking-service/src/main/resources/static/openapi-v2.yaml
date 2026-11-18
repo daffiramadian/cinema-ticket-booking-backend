@@ -5,8 +5,7 @@ info:
   description: |
     Spesifikasi OpenAPI Booking Service versi 2.0.
 
-    Status: endpoint GET dan POST sudah diimplementasikan (Iterasi 10).
-    Implementasi PATCH dijadwalkan pada Iterasi 11.
+    Status: endpoint GET, POST, dan PATCH sudah diimplementasikan (Iterasi 10-11).
 
     Booking Service memiliki ketersediaan kursi per showtime dan siklus hidup
     booking. Satu booking mewakili satu kursi pada satu showtime. API v1
@@ -148,10 +147,13 @@ paths:
       - Bookings
       summary: Menjalankan aksi pada booking
       description: |
-        Aksi yang didukung hanya CANCEL. CANCEL mengubah booking berstatus
-        PENDING_PAYMENT menjadi CANCELLED dan mengembalikan kursi menjadi
-        AVAILABLE. Action kosong atau tidak dikenal menghasilkan 400 Bad
-        Request. Membatalkan booking yang sudah CANCELLED atau CONFIRMED
+        Aksi yang didukung adalah CANCEL dan CONFIRM. CANCEL mengubah booking
+        berstatus PENDING_PAYMENT menjadi CANCELLED dan mengembalikan kursi
+        menjadi AVAILABLE. CONFIRM mengubah booking berstatus PENDING_PAYMENT
+        menjadi CONFIRMED, mengubah status kursi dari HELD menjadi BOOKED, dan
+        menghapus heldUntil. Action kosong atau tidak dikenal menghasilkan
+        400 Bad Request. Membatalkan atau mengonfirmasi booking yang sudah
+        CANCELLED, sudah CONFIRMED, atau hold-nya sudah kedaluwarsa
         menghasilkan 409 Conflict.
       operationId: applyBookingActionV2
       requestBody:
@@ -160,21 +162,39 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/BookingActionInput'
-            example:
-              action: CANCEL
+            examples:
+              cancel:
+                summary: Batalkan booking
+                value:
+                  action: CANCEL
+              confirm:
+                summary: Konfirmasi booking setelah pembayaran
+                value:
+                  action: CONFIRM
       responses:
         '200':
-          description: Booking berhasil dibatalkan
+          description: Aksi pada booking berhasil dijalankan
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BookingOutput'
-              example:
-                id: BK-001
-                showtimeId: ST-001
-                seatNumber: C08
-                status: CANCELLED
-                expiresAt: '2026-11-20T18:15:00+07:00'
+              examples:
+                cancelled:
+                  summary: Booking berhasil dibatalkan
+                  value:
+                    id: BK-001
+                    showtimeId: ST-001
+                    seatNumber: C08
+                    status: CANCELLED
+                    expiresAt: '2026-11-20T18:15:00+07:00'
+                confirmed:
+                  summary: Booking berhasil dikonfirmasi
+                  value:
+                    id: BK-001
+                    showtimeId: ST-001
+                    seatNumber: C08
+                    status: CONFIRMED
+                    expiresAt: '2026-11-20T18:15:00+07:00'
         '400':
           description: Action kosong atau tidak didukung
           content:
@@ -196,12 +216,12 @@ paths:
                     type: about:blank
                     title: Bad Request
                     status: 400
-                    detail: 'Unsupported action: CONFIRM'
+                    detail: 'Unsupported action: REFUND'
                     instance: /api/v2/bookings/BK-001
         '404':
           $ref: '#/components/responses/BookingNotFound'
         '409':
-          description: Booking tidak berstatus PENDING_PAYMENT
+          description: Booking tidak berstatus PENDING_PAYMENT, hold sudah kedaluwarsa, atau status kursi tidak valid
           content:
             application/problem+json:
               schema:
@@ -222,6 +242,30 @@ paths:
                     title: Conflict
                     status: 409
                     detail: Cannot cancel booking BK-001 in status CONFIRMED
+                    instance: /api/v2/bookings/BK-001
+                confirmAlreadyConfirmed:
+                  summary: Booking sudah dikonfirmasi saat CONFIRM
+                  value:
+                    type: about:blank
+                    title: Conflict
+                    status: 409
+                    detail: Booking BK-001 is already CONFIRMED
+                    instance: /api/v2/bookings/BK-001
+                confirmCancelled:
+                  summary: Mengonfirmasi booking yang sudah dibatalkan
+                  value:
+                    type: about:blank
+                    title: Conflict
+                    status: 409
+                    detail: Cannot confirm booking BK-001 in status CANCELLED
+                    instance: /api/v2/bookings/BK-001
+                expiredHold:
+                  summary: Hold booking sudah kedaluwarsa
+                  value:
+                    type: about:blank
+                    title: Conflict
+                    status: 409
+                    detail: Booking BK-001 hold has expired
                     instance: /api/v2/bookings/BK-001
 components:
   parameters:
@@ -296,9 +340,10 @@ components:
         action:
           type: string
           minLength: 1
-          description: Aksi pada booking. Satu-satunya aksi yang didukung adalah CANCEL.
+          description: Aksi pada booking. Aksi yang didukung adalah CANCEL dan CONFIRM.
           enum:
           - CANCEL
+          - CONFIRM
           example: CANCEL
     BookingOutput:
       type: object

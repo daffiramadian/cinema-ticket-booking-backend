@@ -132,14 +132,68 @@ class BookingV2ControllerTest {
     @Test
     void applyBookingActionV2_UnsupportedAction_ReturnsBadRequest() throws Exception {
         when(service.applyBookingActionV2(eq("BK-001"), any(BookingActionInput.class)))
-                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported action: CONFIRM"));
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported action: INVALID"));
+
+        mockMvc.perform(patch("/api/v2/bookings/BK-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"INVALID\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Unsupported action: INVALID"));
+    }
+
+    @Test
+    void applyBookingActionV2_Confirm_ReturnsOk() throws Exception {
+        OffsetDateTime expiresAt = OffsetDateTime.parse("2026-11-20T18:15:00+07:00");
+        BookingOutput output = new BookingOutput("BK-001", "ST-001", "C08", "CONFIRMED", expiresAt);
+        when(service.applyBookingActionV2(eq("BK-001"), any(BookingActionInput.class))).thenReturn(output);
 
         mockMvc.perform(patch("/api/v2/bookings/BK-001")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"action\":\"CONFIRM\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Unsupported action: CONFIRM"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("BK-001"))
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.expiresAt").isNotEmpty());
+    }
+
+    @Test
+    void applyBookingActionV2_ConfirmMissingBooking_ReturnsNotFound() throws Exception {
+        when(service.applyBookingActionV2(eq("BK-999"), any(BookingActionInput.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking BK-999 not found"));
+
+        mockMvc.perform(patch("/api/v2/bookings/BK-999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"CONFIRM\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Booking BK-999 not found"));
+    }
+
+    @Test
+    void applyBookingActionV2_ConfirmCancelledBooking_ReturnsConflict() throws Exception {
+        when(service.applyBookingActionV2(eq("BK-001"), any(BookingActionInput.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Cannot confirm booking BK-001 in status CANCELLED"));
+
+        mockMvc.perform(patch("/api/v2/bookings/BK-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"CONFIRM\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Cannot confirm booking BK-001 in status CANCELLED"));
+    }
+
+    @Test
+    void applyBookingActionV2_ConfirmExpiredBooking_ReturnsConflict() throws Exception {
+        when(service.applyBookingActionV2(eq("BK-001"), any(BookingActionInput.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Booking BK-001 hold has expired"));
+
+        mockMvc.perform(patch("/api/v2/bookings/BK-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"CONFIRM\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Booking BK-001 hold has expired"));
     }
 
     @Test
