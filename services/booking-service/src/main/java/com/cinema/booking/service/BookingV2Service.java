@@ -1,6 +1,7 @@
 package com.cinema.booking.service;
 
 import com.cinema.booking.client.CatalogClient;
+import com.cinema.booking.dto.BookingActionInput;
 import com.cinema.booking.dto.BookingOutput;
 import com.cinema.booking.dto.BookingV2Input;
 import com.cinema.booking.dto.SeatAvailabilityOutput;
@@ -89,6 +90,54 @@ public class BookingV2Service {
 
     public Optional<BookingOutput> getBookingByIdV2(String id) {
         return bookingRepository.findById(id).map(this::mapToOutput);
+    }
+
+    @Transactional
+    public BookingOutput applyBookingActionV2(String id, BookingActionInput input) {
+        String action = input != null ? input.getAction() : null;
+        if (action == null || action.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action: must not be blank");
+        }
+        if (!"CANCEL".equals(action)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported action: " + action);
+        }
+
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking " + id + " not found"));
+
+        String currentStatus = booking.getStatus();
+        if ("CANCELLED".equals(currentStatus)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking " + id + " is already CANCELLED");
+        }
+        if (!"PENDING_PAYMENT".equals(currentStatus)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot cancel booking " + id + " in status " + currentStatus
+            );
+        }
+
+        SeatAvailability seat = seatRepository.findForUpdate(booking.getShowtimeId(), booking.getSeatNumber())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Seat " + booking.getSeatNumber() + " state is inconsistent for booking " + id
+                ));
+
+        if (!"HELD".equals(seat.getStatus()) || !id.equals(seat.getBookingId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Seat " + booking.getSeatNumber() + " is not held by booking " + id
+            );
+        }
+
+        booking.setStatus("CANCELLED");
+        Booking saved = bookingRepository.save(booking);
+
+        seat.setStatus("AVAILABLE");
+        seat.setBookingId(null);
+        seat.setHeldUntil(null);
+        seatRepository.save(seat);
+
+        return mapToOutput(saved);
     }
 
     private void ensureSeatMapInitialized(String showtimeId) {
