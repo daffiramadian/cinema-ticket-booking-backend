@@ -1,5 +1,6 @@
 package com.cinema.payment.service;
 
+import com.cinema.payment.client.BookingClient;
 import com.cinema.payment.dto.PaymentInput;
 import com.cinema.payment.dto.PaymentOutput;
 import com.cinema.payment.dto.PaymentV2Input;
@@ -10,14 +11,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 @Service
 public class PaymentService {
     private final PaymentRepository repository;
+    private final BookingClient bookingClient;
 
-    public PaymentService(PaymentRepository repository) {
+    public PaymentService(PaymentRepository repository, BookingClient bookingClient) {
         this.repository = repository;
+        this.bookingClient = bookingClient;
     }
 
     public Optional<PaymentOutput> getPaymentById(String id) {
@@ -26,22 +30,26 @@ public class PaymentService {
 
     @Transactional
     public PaymentOutput createPayment(PaymentInput input) {
-        return processPayment(input.bookingId(), input.amount());
+        return savePayment(input.bookingId(), input.amount(), false);
     }
 
     @Transactional
     public PaymentOutput createPaymentV2(PaymentV2Input input) {
-        return processPayment(input.bookingId(), input.amount());
+        return savePayment(input.bookingId(), input.amount(), true);
     }
 
-    private PaymentOutput processPayment(String bookingId, java.math.BigDecimal amount) {
+    private PaymentOutput savePayment(String bookingId, BigDecimal amount, boolean confirmRemoteBooking) {
         if (repository.existsByBookingId(bookingId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Payment already exists for booking " + bookingId);
         }
 
-        String id = generateId();
         String status = bookingId.endsWith("-FAIL") ? "FAILED" : "SUCCESS";
+        // Confirm remotely before saving SUCCESS so a failed Booking Service call leaves no local SUCCESS row.
+        if (confirmRemoteBooking && "SUCCESS".equals(status)) {
+            bookingClient.confirmBooking(bookingId);
+        }
 
+        String id = generateId();
         Payment payment = new Payment(id, bookingId, amount, status);
         Payment saved = repository.save(payment);
         return mapToOutput(saved);

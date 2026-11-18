@@ -1,5 +1,6 @@
 package com.cinema.booking.controller;
 
+import com.cinema.booking.dto.BookingActionInput;
 import com.cinema.booking.dto.BookingOutput;
 import com.cinema.booking.dto.BookingV2Input;
 import com.cinema.booking.dto.SeatAvailabilityOutput;
@@ -7,6 +8,7 @@ import com.cinema.booking.service.BookingV2Service;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,5 +43,11 @@ public class BookingV2Controller {
     public BookingOutput getBookingById(@PathVariable String id) {
         return service.getBookingByIdV2(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking " + id + " not found"));
+    }
+
+    @PatchMapping("/bookings/{id}")
+    public BookingOutput applyBookingAction(@PathVariable String id,
+                                            @Valid @RequestBody BookingActionInput input) {
+        return service.applyBookingActionV2(id, input);
     }
 }

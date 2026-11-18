@@ -82,4 +82,63 @@ class PaymentV2ControllerTest {
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.detail").value("Payment PY-999 not found"));
     }
+
+    @Test
+    void createPaymentV2_FailSuffix_ReturnsCreatedWithFailedStatus() throws Exception {
+        PaymentV2Input input = new PaymentV2Input("BK-002-FAIL", new BigDecimal("50000"));
+        PaymentOutput output = new PaymentOutput("PY-002", "BK-002-FAIL", new BigDecimal("50000"), "FAILED");
+        when(service.createPaymentV2(any(PaymentV2Input.class))).thenReturn(output);
+
+        mockMvc.perform(post("/api/v2/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value("PY-002"))
+                .andExpect(jsonPath("$.status").value("FAILED"));
+    }
+
+    @Test
+    void createPaymentV2_BookingNotFound_ReturnsNotFound() throws Exception {
+        PaymentV2Input input = new PaymentV2Input("BK-999", new BigDecimal("50000"));
+        when(service.createPaymentV2(any(PaymentV2Input.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking BK-999 not found"));
+
+        mockMvc.perform(post("/api/v2/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Booking BK-999 not found"));
+    }
+
+    @Test
+    void createPaymentV2_BookingConflict_ReturnsConflict() throws Exception {
+        PaymentV2Input input = new PaymentV2Input("BK-001", new BigDecimal("50000"));
+        when(service.createPaymentV2(any(PaymentV2Input.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Booking BK-001 cannot be confirmed"));
+
+        mockMvc.perform(post("/api/v2/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Booking BK-001 cannot be confirmed"));
+    }
+
+    @Test
+    void createPaymentV2_BookingUnavailable_ReturnsServiceUnavailable() throws Exception {
+        PaymentV2Input input = new PaymentV2Input("BK-001", new BigDecimal("50000"));
+        when(service.createPaymentV2(any(PaymentV2Input.class)))
+                .thenThrow(new ResponseStatusException(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Booking Service is unavailable, payment could not be confirmed"
+                ));
+
+        mockMvc.perform(post("/api/v2/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(input)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.detail").value("Booking Service is unavailable, payment could not be confirmed"));
+    }
 }

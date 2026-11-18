@@ -5,21 +5,25 @@ info:
   description: |
     Spesifikasi OpenAPI Payment Service versi 2.0.
 
-    Status: endpoint GET dan POST sudah diimplementasikan (Iterasi 10).
+    Status: endpoint GET dan POST sudah diimplementasikan (Iterasi 10) serta
+    terintegrasi ke konfirmasi Booking Service (Iterasi 11).
 
     Payment Service adalah simulator pembayaran. Tidak ada integrasi bank,
     kartu, e-wallet, atau payment gateway, dan tidak ada data kartu yang
     diterima atau disimpan. API v1 (/api/v1/payments) tetap tersedia dan
     tidak berubah.
 
-    Aturan simulator (deterministik):
-    - bookingId yang diakhiri "-FAIL" (contoh BK-001-FAIL) menghasilkan status FAILED.
-    - bookingId lain yang valid menghasilkan status SUCCESS.
+    Aturan simulator (deterministik) & integrasi booking:
+    - bookingId yang diakhiri "-FAIL" (contoh BK-001-FAIL) menghasilkan status
+      FAILED dan tidak memanggil Booking Service.
+    - bookingId lain yang valid memanggil Booking Service
+      (PATCH /api/v2/bookings/{bookingId} dengan {"action":"CONFIRM"}) terlebih
+      dahulu, dan hanya menyimpan serta mengembalikan status SUCCESS setelah
+      Booking Service mengonfirmasi booking tersebut.
     - Satu bookingId hanya boleh memiliki satu record pembayaran, apa pun
       statusnya. Permintaan berikutnya untuk bookingId yang sama menghasilkan
       409 Conflict.
-    - Payment Service tidak memanggil Booking Service. bookingId hanya
-      divalidasi formatnya, dan amount tidak dicocokkan dengan harga showtime.
+    - amount tidak dicocokkan dengan harga showtime pada Catalog Service.
 servers:
 - url: http://localhost:8083
   description: Payment Service
@@ -32,7 +36,7 @@ paths:
       tags:
       - Payments
       summary: Membuat simulasi pembayaran untuk satu booking
-      description: ID pembayaran dibuat oleh server dengan format PY-NNN. Status ditentukan oleh aturan simulator.
+      description: ID pembayaran dibuat oleh server dengan format PY-NNN. Status ditentukan oleh aturan simulator, dan status SUCCESS hanya disimpan setelah konfirmasi booking ke Booking Service berhasil.
       operationId: createPaymentV2
       requestBody:
         required: true
@@ -53,7 +57,7 @@ paths:
                   amount: 50000
       responses:
         '201':
-          description: Record pembayaran berhasil dibuat. Status SUCCESS atau FAILED sesuai aturan simulator.
+          description: Record pembayaran berhasil dibuat. Status SUCCESS hanya dikembalikan setelah Booking Service mengonfirmasi booking; status FAILED dikembalikan untuk bookingId berakhiran -FAIL tanpa memanggil Booking Service.
           content:
             application/json:
               schema:
@@ -96,17 +100,52 @@ paths:
                     status: 400
                     detail: 'amount: must be greater than 0'
                     instance: /api/v2/payments
-        '409':
-          description: Sudah ada record pembayaran untuk bookingId tersebut
+        '404':
+          description: Booking tidak ditemukan di Booking Service
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
               example:
                 type: about:blank
-                title: Conflict
-                status: 409
-                detail: Payment already exists for booking BK-001
+                title: Not Found
+                status: 404
+                detail: Booking BK-999 not found
+                instance: /api/v2/payments
+        '409':
+          description: Sudah ada record pembayaran untuk bookingId tersebut atau booking tidak dapat dikonfirmasi (kedaluwarsa, dibatalkan, atau sudah dikonfirmasi)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                duplicatePayment:
+                  summary: Pembayaran duplikat untuk bookingId yang sama
+                  value:
+                    type: about:blank
+                    title: Conflict
+                    status: 409
+                    detail: Payment already exists for booking BK-001
+                    instance: /api/v2/payments
+                bookingNotConfirmable:
+                  summary: Booking tidak dapat dikonfirmasi atau hold sudah kedaluwarsa
+                  value:
+                    type: about:blank
+                    title: Conflict
+                    status: 409
+                    detail: Booking BK-001 cannot be confirmed
+                    instance: /api/v2/payments
+        '503':
+          description: Booking Service tidak dapat dihubungi sehingga konfirmasi booking gagal
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                title: Service Unavailable
+                status: 503
+                detail: Booking Service is unavailable, payment could not be confirmed
                 instance: /api/v2/payments
   /api/v2/payments/{id}:
     get:

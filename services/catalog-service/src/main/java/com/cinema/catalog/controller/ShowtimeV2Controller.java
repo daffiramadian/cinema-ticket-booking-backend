@@ -5,9 +5,11 @@ import com.cinema.catalog.dto.ShowtimeOutput;
 import com.cinema.catalog.service.ShowtimeService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -40,5 +42,17 @@ public class ShowtimeV2Controller {
     public ShowtimeOutput getShowtimeById(@PathVariable String id) {
         return service.getShowtimeById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Showtime " + id + " not found"));
+    }
+
+    @PutMapping("/showtimes/{id}")
+    public ShowtimeOutput replaceShowtime(@PathVariable String id,
+                                          @Valid @RequestBody ShowtimeInput input) {
+        return service.replaceShowtime(id, input);
+    }
+
+    @DeleteMapping("/showtimes/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteShowtime(@PathVariable String id) {
+        service.deleteShowtime(id);
     }
 }

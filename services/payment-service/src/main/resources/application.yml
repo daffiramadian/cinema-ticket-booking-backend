@@ -14,6 +14,8 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+booking:
+  base-url: ${BOOKING_BASE_URL:http://localhost:8082}
 management:
   endpoints:
     web:
