@@ -16,6 +16,8 @@ spring:
       enabled: true
 booking:
   base-url: ${BOOKING_BASE_URL:http://localhost:8082}
+cors:
+  allowed-origins: ${FRONTEND_ORIGINS:http://localhost:3000,http://localhost:5173}
 management:
   endpoints:
     web:

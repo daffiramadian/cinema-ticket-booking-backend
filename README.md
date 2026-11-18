@@ -119,6 +119,20 @@ GET  /api/v1/payments/{id}
 
 Payment is simulated locally. The system does not process real card or banking data.
 
+## API v2 Flow and Frontend Configuration
+
+The main API v2 end-to-end flow:
+
+```text
+GET  /api/v2/movies                         (Catalog, 8081)
+GET  /api/v2/movies/{movieId}/showtimes     (Catalog, 8081)
+GET  /api/v2/showtimes/{showtimeId}/seats   (Booking, 8082)
+POST /api/v2/bookings                       (Booking, 8082 -> Seat HELD, Booking PENDING_PAYMENT)
+POST /api/v2/payments                       (Payment, 8083 -> confirms Booking via PATCH /api/v2/bookings/{id})
+```
+
+All three services read `FRONTEND_ORIGINS` for CORS (default: `http://localhost:3000,http://localhost:5173`, allowing `GET, POST, PUT, PATCH, DELETE, OPTIONS` without wildcards or credentials). Inter-service calls default to `CATALOG_BASE_URL=http://localhost:8081` (used by Booking Service) and `BOOKING_BASE_URL=http://localhost:8082` (used by Payment Service). See [`.env.example`](.env.example) for the full variable list.
+
 ## Testing
 
 Run Catalog tests:
@@ -189,6 +203,9 @@ SERVER_PORT
 DB_URL
 DB_USERNAME
 DB_PASSWORD
+FRONTEND_ORIGINS
+CATALOG_BASE_URL
+BOOKING_BASE_URL
 ```
 
 The database credentials in the Compose configuration are for local development only. Do not commit real credentials, tokens, or secrets to the repository.
