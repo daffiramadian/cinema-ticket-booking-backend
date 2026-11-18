@@ -3,6 +3,8 @@ package com.cinema.booking.service;
 import com.cinema.booking.client.CatalogClient;
 import com.cinema.booking.dto.BookingActionInput;
 import com.cinema.booking.dto.BookingOutput;
+import com.cinema.booking.dto.BookingV2Input;
+import com.cinema.booking.dto.SeatAvailabilityOutput;
 import com.cinema.booking.entity.Booking;
 import com.cinema.booking.entity.SeatAvailability;
 import com.cinema.booking.repository.BookingRepository;
@@ -16,12 +18,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -233,5 +239,92 @@ class BookingV2ServiceTest {
         assertEquals(expiresAt.plusMinutes(5), seat.getHeldUntil());
         verify(bookingRepository, never()).save(any());
         verify(seatRepository, never()).save(any());
+    }
+
+    @Test
+    void createBookingV2_AvailableSeat_HoldsSeatAndSavesBooking() {
+        SeatAvailability seat = new SeatAvailability("ST-001", "C08", "C", 8, "AVAILABLE");
+        when(seatRepository.existsByShowtimeId("ST-001")).thenReturn(true);
+        when(seatRepository.findForUpdate("ST-001", "C08")).thenReturn(Optional.of(seat));
+        when(bookingRepository.existsActiveBooking(eq("ST-001"), eq("C08"), any(OffsetDateTime.class))).thenReturn(false);
+        when(bookingRepository.findAll()).thenReturn(List.of());
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        BookingOutput result = service.createBookingV2(new BookingV2Input("ST-001", "C08"));
+
+        verify(catalogClient).ensureShowtimeExists("ST-001");
+        verify(seatRepository).findForUpdate("ST-001", "C08");
+        assertEquals("BK-001", result.id());
+        assertEquals("PENDING_PAYMENT", result.status());
+        assertEquals("HELD", seat.getStatus());
+        assertEquals("BK-001", seat.getBookingId());
+        assertNotNull(seat.getHeldUntil());
+    }
+
+    @Test
+    void createBookingV2_BookedSeat_ThrowsConflict() {
+        SeatAvailability seat = new SeatAvailability("ST-001", "C08", "C", 8, "BOOKED");
+        seat.setBookingId("BK-001");
+        when(seatRepository.existsByShowtimeId("ST-001")).thenReturn(true);
+        when(seatRepository.findForUpdate("ST-001", "C08")).thenReturn(Optional.of(seat));
+        when(bookingRepository.existsActiveBooking(eq("ST-001"), eq("C08"), any(OffsetDateTime.class))).thenReturn(true);
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> service.createBookingV2(new BookingV2Input("ST-001", "C08"))
+        );
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+        assertEquals("BOOKED", seat.getStatus());
+        verify(bookingRepository, never()).save(any());
+        verify(seatRepository, never()).save(any());
+    }
+
+    @Test
+    void createBookingV2_ExpiredHeldSeat_CleansUpAndBooksSeat() {
+        OffsetDateTime past = OffsetDateTime.now().minusMinutes(2);
+        SeatAvailability seat = new SeatAvailability("ST-001", "C08", "C", 8, "HELD");
+        seat.setBookingId("BK-001");
+        seat.setHeldUntil(past);
+        Booking expiredBooking = new Booking("BK-001", "ST-001", "C08", "PENDING_PAYMENT", past);
+
+        when(seatRepository.existsByShowtimeId("ST-001")).thenReturn(true);
+        when(seatRepository.findForUpdate("ST-001", "C08")).thenReturn(Optional.of(seat));
+        when(bookingRepository.existsActiveBooking(eq("ST-001"), eq("C08"), any(OffsetDateTime.class))).thenReturn(false);
+        when(bookingRepository.findAll()).thenReturn(List.of(expiredBooking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        BookingOutput result = service.createBookingV2(new BookingV2Input("ST-001", "C08"));
+
+        assertEquals("BK-002", result.id());
+        assertEquals("PENDING_PAYMENT", result.status());
+        assertEquals("HELD", seat.getStatus());
+        assertEquals("BK-002", seat.getBookingId());
+        assertNotNull(seat.getHeldUntil());
+        assertTrue(seat.getHeldUntil().isAfter(OffsetDateTime.now()));
+    }
+
+    @Test
+    void getSeatsByShowtime_ExpiredHeldSeat_ReleasesToAvailable() {
+        SeatAvailability expiredSeat = new SeatAvailability("ST-001", "C08", "C", 8, "HELD");
+        expiredSeat.setBookingId("BK-001");
+        expiredSeat.setHeldUntil(OffsetDateTime.now().minusMinutes(1));
+
+        SeatAvailability bookedSeat = new SeatAvailability("ST-001", "C09", "C", 9, "BOOKED");
+        bookedSeat.setBookingId("BK-002");
+
+        when(seatRepository.existsByShowtimeId("ST-001")).thenReturn(true);
+        when(seatRepository.findByShowtimeIdOrderBySeatNumberAsc("ST-001"))
+                .thenReturn(List.of(expiredSeat, bookedSeat));
+
+        List<SeatAvailabilityOutput> result = service.getSeatsByShowtime("ST-001");
+
+        verify(catalogClient).ensureShowtimeExists("ST-001");
+        verify(seatRepository).save(expiredSeat);
+        verify(seatRepository, never()).save(bookedSeat);
+        assertEquals("AVAILABLE", result.get(0).status());
+        assertEquals("BOOKED", result.get(1).status());
+        assertNull(expiredSeat.getBookingId());
+        assertNull(expiredSeat.getHeldUntil());
     }
 }

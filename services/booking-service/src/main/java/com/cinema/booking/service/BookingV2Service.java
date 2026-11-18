@@ -9,6 +9,8 @@ import com.cinema.booking.entity.Booking;
 import com.cinema.booking.entity.SeatAvailability;
 import com.cinema.booking.repository.BookingRepository;
 import com.cinema.booking.repository.SeatAvailabilityRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ import java.util.Optional;
 
 @Service
 public class BookingV2Service {
+    private static final Logger log = LoggerFactory.getLogger(BookingV2Service.class);
     private static final List<String> ROWS = List.of("A", "B", "C", "D", "E");
     private static final int COLS = 10;
 
@@ -66,8 +69,8 @@ public class BookingV2Service {
         OffsetDateTime now = OffsetDateTime.now();
         releaseIfExpired(seat, now);
 
-        boolean activeBookingExists = bookingRepository.existsByShowtimeIdAndSeatNumberAndStatusIn(
-                input.showtimeId(), input.seatNumber(), List.of("PENDING_PAYMENT", "CONFIRMED"));
+        boolean activeBookingExists = bookingRepository.existsActiveBooking(
+                input.showtimeId(), input.seatNumber(), now);
         if (!"AVAILABLE".equals(seat.getStatus()) || activeBookingExists) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -84,6 +87,8 @@ public class BookingV2Service {
         seat.setBookingId(saved.getId());
         seat.setHeldUntil(expiresAt);
         seatRepository.save(seat);
+        log.info("Booking created: id={}, showtimeId={}, seatNumber={}, status={}",
+                saved.getId(), saved.getShowtimeId(), saved.getSeatNumber(), saved.getStatus());
 
         return mapToOutput(saved);
     }
@@ -122,6 +127,8 @@ public class BookingV2Service {
         seat.setBookingId(null);
         seat.setHeldUntil(null);
         seatRepository.save(seat);
+        log.info("Booking cancelled: id={}, showtimeId={}, seatNumber={}",
+                saved.getId(), saved.getShowtimeId(), saved.getSeatNumber());
 
         return mapToOutput(saved);
     }
@@ -142,6 +149,8 @@ public class BookingV2Service {
         seat.setStatus("BOOKED");
         seat.setHeldUntil(null);
         seatRepository.save(seat);
+        log.info("Booking confirmed: id={}, showtimeId={}, seatNumber={}",
+                saved.getId(), saved.getShowtimeId(), saved.getSeatNumber());
 
         return mapToOutput(saved);
     }
@@ -197,10 +206,13 @@ public class BookingV2Service {
 
     private void releaseIfExpired(SeatAvailability seat, OffsetDateTime now) {
         if ("HELD".equals(seat.getStatus()) && seat.getHeldUntil() != null && seat.getHeldUntil().isBefore(now)) {
+            String expiredBookingId = seat.getBookingId();
             seat.setStatus("AVAILABLE");
             seat.setBookingId(null);
             seat.setHeldUntil(null);
             seatRepository.save(seat);
+            log.info("Expired seat hold released: showtimeId={}, seatNumber={}, bookingId={}",
+                    seat.getShowtimeId(), seat.getSeatNumber(), expiredBookingId);
         }
     }
 

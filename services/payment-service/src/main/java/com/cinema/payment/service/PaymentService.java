@@ -6,6 +6,8 @@ import com.cinema.payment.dto.PaymentOutput;
 import com.cinema.payment.dto.PaymentV2Input;
 import com.cinema.payment.entity.Payment;
 import com.cinema.payment.repository.PaymentRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,8 @@ import java.util.Optional;
 
 @Service
 public class PaymentService {
+    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+
     private final PaymentRepository repository;
     private final BookingClient bookingClient;
 
@@ -52,6 +56,7 @@ public class PaymentService {
         String id = generateId();
         Payment payment = new Payment(id, bookingId, amount, status);
         Payment saved = repository.save(payment);
+        log.info("Payment recorded: id={}, bookingId={}, status={}", saved.getId(), saved.getBookingId(), saved.getStatus());
         return mapToOutput(saved);
     }
 

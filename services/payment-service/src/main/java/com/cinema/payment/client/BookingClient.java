@@ -1,5 +1,7 @@
 package com.cinema.payment.client;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import java.util.Map;
 
 @Component
 public class BookingClient {
+    private static final Logger log = LoggerFactory.getLogger(BookingClient.class);
     private static final int TIMEOUT_MS = 3000;
 
     private final RestClient restClient;
@@ -58,6 +61,7 @@ public class BookingClient {
         } catch (HttpClientErrorException.Conflict ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking " + bookingId + " cannot be confirmed");
         } catch (RestClientException ex) {
+            log.warn("Booking Service unavailable when confirming bookingId={}: {}", bookingId, ex.getMessage());
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Booking Service is unavailable, payment could not be confirmed"
